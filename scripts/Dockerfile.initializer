@@ -1,0 +1,16 @@
+FROM alpine:latest
+
+# Install necessary tools
+RUN apk add --no-cache curl bash jq
+
+# Set working directory
+WORKDIR /scripts
+
+# Copy the initialization script
+COPY keycloak-init.sh .
+
+# Make the script executable
+RUN chmod +x keycloak-init.sh
+
+# Command to run the initialization script
+CMD ["/scripts/keycloak-init.sh"]

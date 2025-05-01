@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
 
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:24.0
     container_name: keycloak
     environment:
       KC_DB: postgres
@@ -29,6 +29,7 @@ services:
       KC_DB_PASSWORD: password
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
     command: 
       - start-dev
     ports:
@@ -39,6 +40,23 @@ services:
     networks:
       - keycloak-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  initializer:
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.initializer
+    container_name: keycloak-initializer
+    networks:
+      - keycloak-network
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: "no"
 
   poc-app:
     build:
@@ -60,6 +78,7 @@ services:
     depends_on:
       - keycloak
       - backend
+      - initializer
     networks:
       - keycloak-network
     restart: unless-stopped
@@ -86,6 +105,7 @@ services:
       - WEB_CLIENT_SECRET=webClientSecretExample
     depends_on:
       - keycloak
+      - initializer
     networks:
       - keycloak-network
     restart: unless-stopped

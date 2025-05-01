@@ -1,3 +1,5 @@
 # Generic Docker Ignore
 
 .env
+disabled.env*
+.DS_Store
