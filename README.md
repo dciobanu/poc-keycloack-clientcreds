@@ -1,157 +1,153 @@
-# Complete Keycloak POC Authentication Setup
+# Keycloak Client Credentials POC with Docker Compose
 
-This guide provides comprehensive instructions for setting up and running the Keycloak authentication demo with Docker Compose.
+This project demonstrates two approaches to implementing the Client Credentials flow with Keycloak, all running in Docker containers:
+
+1. **Client-side implementation**: Direct authentication from the browser (not secure for production)
+2. **Backend implementation**: Secure authentication through a backend service (recommended for production)
 
 ## Project Structure
 
-Create the following directory structure:
-
 ```
 keycloak-demo/
-├── docker-compose.yml     # Main Docker Compose file
-├── poc-app/
+├── docker-compose.yml     # Docker compose configuration for all services
+├── Makefile               # Helper commands for Docker Compose
+├── poc-app/               # React frontend application
+│   ├── Dockerfile         # Docker configuration for the frontend
 │   ├── public/
-│   │   ├── index.html
-│   │   ├── silent-check-sso.html
 │   ├── src/
-│   │   ├── App.js
-│   │   ├── App.css
-│   │   ├── index.js
-│   │   └── index.css
-│   ├── .env
-│   ├── Dockerfile
-│   ├── nginx.conf
-│   └── package.json
+│   │   ├── App.js         # React application with both auth methods
+│   │   ├── App.css        # Styles for the application
+│   │   └── ...
+│   └── ...
+└── backend/               # Secure backend service
+    ├── Dockerfile         # Docker configuration for the backend
+    ├── server.js          # Express server for secure auth
+    └── package.json       # Backend dependencies
 ```
 
-## Step 1: Set Up Keycloak and POC App
+## Prerequisites
 
-1. Create the `keycloak-demo` directory and navigate into it:
-   ```bash
-   mkdir -p keycloak-demo/poc-app
-   cd keycloak-demo
-   ```
+- Docker and Docker Compose installed on your system
+- Make (optional, for using the Makefile commands)
 
-2. Copy the `docker-compose.yml` file into the root directory.
+## Running the Application with Docker Compose
 
-3. Create the POC app structure:
-   ```bash
-   mkdir -p poc-app/public poc-app/src
-   ```
+### Quick Start
 
-4. Copy the Dockerfile, nginx.conf, and .env files into the `poc-app` directory.
+The easiest way to run everything is using the provided Makefile:
 
-5. Create a silent check SSO HTML file for silent token refresh:
-   ```bash
-   echo '<html><body><script>parent.postMessage(location.href, location.origin);</script></body></html>' > poc-app/public/silent-check-sso.html
-   ```
+```bash
+# Build and start all services
+make build
 
-6. Copy all the React files (App.js, index.js, etc.) into their respective directories in the `poc-app` folder.
+# Or, if you want to also open the app in your browser
+make run
+```
 
-## Step 2: Run the Application
+If you don't have Make installed, you can use Docker Compose directly:
 
-1. Start the Docker Compose services:
-   ```bash
-   docker-compose up -d
-   ```
+```bash
+# Build and start all services
+docker-compose up -d --build
+```
 
-2. Wait for all services to initialize. You can check the logs with:
-   ```bash
-   docker-compose logs -f
-   ```
+### Accessing the Application
 
-3. Access Keycloak at http://localhost:8080/admin
-   - Username: `admin`
-   - Password: `admin`
+- React Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
+- Keycloak Admin Console: http://localhost:8080/admin
+  - Username: `admin`
+  - Password: `admin`
 
-4. Access the React app at http://localhost:3000
+### Managing the Services
 
-## Step 3: Configure Keycloak
+Using the Makefile (recommended):
 
-1. Log in to the Keycloak Admin Console (http://localhost:8080/admin)
+```bash
+# View logs
+make logs
 
-2. Create the "sentinel-poc" realm:
-   - Hover over the realm dropdown in the top-left corner
-   - Click "Create Realm"
-   - Enter "sentinel-poc" as the realm name
-   - Click "Create"
+# Stop all services
+make down
 
-3. Create and configure the client:
-   - Go to "Clients" > "Create client"
-   - Client ID: `poc-ios-client`
-   - Client Authentication: ON
-   - Authentication flow: Check both "Standard flow" and "Implicit flow"
-   - Click "Next"
+# Restart all services
+make restart
 
-3. On the Capability config screen:
-   - Client authentication: ON
-   - Click "Next"
+# Check service status
+make status
 
-4. On the Login settings screen:
-   - Root URL: `http://localhost:3000/`
-   - Valid redirect URIs: `http://localhost:3000/*`
-   - Web origins: `http://localhost:3000` (or use `*` for development)
-   - Click "Save"
+# Clean up everything (including volumes)
+make clean
+```
 
-5. Go to "Credentials" tab and set the client secret:
-   - Client secret: `267GvXWbwgppYoqcNsRVseg9JuXmqdoK`
-   - You may need to click "Regenerate" and then manually update it
+Using Docker Compose directly:
 
-6. Create a test user:
-   - Go to "Users" > "Add user"
-   - Username: `testuser`
-   - Email: `testuser@example.com`
-   - Create the user
-   - Go to "Credentials" tab
-   - Set password: `password` (uncheck "Temporary")
+```bash
+# View logs
+docker-compose logs -f
 
-## Step 4: Test the Application
+# Stop all services
+docker-compose down
 
-1. Go to http://localhost:3000
+# Restart all services
+docker-compose restart
+```
 
-2. Click "Login with Keycloak"
+## Configuring Keycloak for Client Credentials Flow
 
-3. You will be redirected to the Keycloak login page
+After the services are running, you need to configure Keycloak:
 
-4. Log in with the test user credentials
+1. Access the Keycloak admin console at http://localhost:8080/admin
+2. Login with username `admin` and password `admin`
+3. Create a new realm named `sentinel-poc`
+4. Create a new client with ID `poc-ios-client`
+5. Configure the client:
+   - Set Access Type to "confidential"
+   - Enable "Service Accounts"
+   - Set Client Secret to `267GvXWbwgppYoqcNsRVseg9JuXmqdoK` (or update the environment variables in docker-compose.yml)
+   - Add valid redirect URIs: http://localhost:3000/*
+   - Set Web Origins to `*` (for development only)
 
-5. Upon successful login, you will be redirected back to the POC app with your user information displayed
+## Using the Application
+
+1. Open http://localhost:3000 in your browser
+2. Choose your authentication method:
+   - **Client-side (Insecure)**: Direct authentication from the browser
+   - **Backend (Secure)**: Authentication through the backend service
+3. Click "Get Token" to authenticate using the selected method
+4. View the token information displayed on the screen
 
 ## Troubleshooting
+
+### Services Not Starting
+
+Check the logs for any errors:
+
+```bash
+make logs
+# or for specific service
+make logs-keycloak
+make logs-poc-app
+make logs-backend
+```
+
+### Network Issues
+
+If services can't communicate with each other:
+
+1. Ensure all services are on the same Docker network
+2. Check the environment variables in docker-compose.yml
+3. For the backend method, make sure the backend service is running
 
 ### CORS Issues
 
 If you encounter CORS errors:
 
-1. Check the Web Origins settings in your Keycloak client configuration
-2. Verify the nginx.conf file has proper CORS headers
-3. Ensure Docker Compose network is properly configured
+1. Ensure your Keycloak instance has the proper Web Origins configured
+2. Check that the backend server has CORS middleware enabled
 
-### Authentication Failures
+## Security Notes
 
-If login fails:
-
-1. Check browser console for errors
-2. Verify client ID and secret match between Keycloak and the POC app
-3. Ensure redirect URIs are properly configured
-4. Check that implicit flow is enabled in Keycloak
-
-### Container Connectivity Issues
-
-If containers can't communicate:
-
-1. Check the network settings in docker-compose.yml
-2. Verify service names are correctly referenced in environment variables
-3. Make sure ports are properly exposed
-
-### POC App Not Loading
-
-If the POC app doesn't build or run:
-
-1. Check the Docker build logs:
-   ```bash
-   docker-compose logs -f poc-app
-   ```
-2. Verify dependencies in package.json
-3. Check for syntax errors in the React code
-
+- The client-side implementation exposes the client secret in the browser and is NOT secure for production
+- The backend implementation keeps the client secret secure and is recommended for production use
+- In a real-world application, you would typically use the obtained token to access protected resources

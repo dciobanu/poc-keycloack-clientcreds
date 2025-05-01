@@ -20,19 +20,20 @@
   margin-right: auto;
 }
 
-.login-button, .logout-button {
+.login-button, .reset-button, .switch-button {
   background-color: #4285f4;
   color: white;
   border: none;
   padding: 12px 24px;
-  font-size: 18px;
+  font-size: 16px;
   border-radius: 4px;
   cursor: pointer;
-  margin: 20px 0;
+  margin: 20px 10px;
   transition: background-color 0.3s;
+  min-width: 200px;
 }
 
-.login-button:hover, .logout-button:hover {
+.login-button:hover, .reset-button:hover, .switch-button:hover {
   background-color: #3367d6;
 }
 
@@ -41,12 +42,20 @@
   cursor: not-allowed;
 }
 
-.logout-button {
+.reset-button {
   background-color: #ea4335;
 }
 
-.logout-button:hover {
+.reset-button:hover {
   background-color: #d33828;
+}
+
+.switch-button {
+  background-color: #34a853;
+}
+
+.switch-button:hover {
+  background-color: #2d8e48;
 }
 
 .token-info {
@@ -57,6 +66,14 @@
   max-width: 600px;
   margin-top: 20px;
   text-align: left;
+}
+
+.token-source {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
 }
 
 .token-details {
@@ -110,4 +127,70 @@
   max-width: 600px;
   text-align: left;
   border-left: 4px solid #d32f2f;
+}
+
+.auth-toggle {
+  width: 100%;
+  max-width: 600px;
+  margin-bottom: 20px;
+}
+
+.toggle-container {
+  display: flex;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.toggle-button {
+  flex: 1;
+  padding: 12px 0;
+  font-size: 14px;
+  background-color: #f1f3f4;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.toggle-button:first-child {
+  border-right: 1px solid #ddd;
+}
+
+.toggle-button.active {
+  background-color: #4285f4;
+  color: white;
+  font-weight: bold;
+}
+
+.auth-description {
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+  margin: 5px 0;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+@media (max-width: 600px) {
+  .toggle-container {
+    flex-direction: column;
+  }
+  
+  .toggle-button:first-child {
+    border-right: none;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .button-group {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .login-button, .reset-button, .switch-button {
+    margin: 10px 0;
+  }
 }

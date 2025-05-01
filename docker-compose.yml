@@ -29,9 +29,6 @@ services:
       KC_DB_PASSWORD: password
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-      # Optional: Uncomment to specify a fixed frontend URL
-      # KC_HOSTNAME_URL: http://localhost:8080
-      # KC_HOSTNAME_ADMIN_URL: http://localhost:8080
     command: 
       - start-dev
     ports:
@@ -58,6 +55,33 @@ services:
       - REACT_APP_KEYCLOAK_URL=http://keycloak:8080
       - REACT_APP_KEYCLOAK_REALM=sentinel-poc
       - REACT_APP_KEYCLOAK_CLIENT_ID=poc-ios-client
+      - REACT_APP_KEYCLOAK_CLIENT_SECRET=267GvXWbwgppYoqcNsRVseg9JuXmqdoK
+      - REACT_APP_BACKEND_URL=http://localhost:3001
+    depends_on:
+      - keycloak
+      - backend
+    networks:
+      - keycloak-network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: keycloak-backend-service
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - SERVER_PORT=3001
+      - CLIENT_ORIGIN=http://localhost:3000
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=sentinel-poc
+      - KEYCLOAK_CLIENT_ID=poc-ios-client
+      - KEYCLOAK_CLIENT_SECRET=267GvXWbwgppYoqcNsRVseg9JuXmqdoK
     depends_on:
       - keycloak
     networks:
