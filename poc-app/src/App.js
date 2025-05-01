@@ -8,6 +8,7 @@ function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
   const [token, setToken] = useState(null);
+  const [initializationError, setInitializationError] = useState(null);
 
   useEffect(() => {
     // Initialize Keycloak instance using environment variables
@@ -19,63 +20,88 @@ function App() {
 
     console.log('Keycloak config:', keycloakConfig);
     const keycloakInstance = new Keycloak(keycloakConfig);
-    setKeycloak(keycloakInstance);
-  }, []);
+
+    // Initialize Keycloak on component mount
+    keycloakInstance.init({
+      flow: 'implicit', // Using implicit flow as requested
+      redirectUri: window.location.origin,
+      checkLoginIframe: false, // Disable iframe usage completely
+      onLoad: 'check-sso' // Only check if already logged in, don't force login
+    }).then(authenticated => {
+      console.log('Keycloak initialized, authenticated:', authenticated);
+      setKeycloak(keycloakInstance);
+      setAuthenticated(authenticated);
+      
+      if (authenticated) {
+        setToken(keycloakInstance.token);
+        
+        // Fetch user info
+        keycloakInstance.loadUserInfo().then(userInfo => {
+          setUserInfo(userInfo);
+          console.log('User info loaded:', userInfo);
+        }).catch(error => {
+          console.error('Failed to load user info:', error);
+        });
+        
+        // Set up token refresh
+        keycloakInstance.onTokenExpired = () => {
+          console.log('Token expired, refreshing...');
+          keycloakInstance.updateToken(30).then(refreshed => {
+            if (refreshed) {
+              console.log('Token refreshed');
+              setToken(keycloakInstance.token);
+            } else {
+              console.log('Token not refreshed, still valid');
+            }
+          }).catch(error => {
+            console.error('Failed to refresh token:', error);
+            setAuthenticated(false);
+            setUserInfo(null);
+            setToken(null);
+          });
+        };
+      }
+    }).catch(error => {
+      console.error('Failed to initialize Keycloak:', error);
+      setInitializationError(error.toString());
+    });
+    
+    // Clean up function to handle component unmounting
+    return () => {
+      console.log('Component unmounting, cleaning up Keycloak instance');
+      // No specific cleanup needed for Keycloak
+    };
+  }, []); // Empty dependency array ensures this runs only once
 
   const login = () => {
     if (keycloak) {
-      keycloak.init({
-        flow: 'implicit', // Using implicit flow as requested
-        onLoad: 'check-sso',
-        silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
-        responseMode: 'fragment',
-        checkLoginIframe: false
-      }).then((authenticated) => {
-        setAuthenticated(authenticated);
-        
-        if (authenticated) {
-          console.log('User is authenticated');
-          setToken(keycloak.token);
-          console.log('Token expires in', Math.round(keycloak.tokenParsed.exp + keycloak.timeSkew - new Date().getTime() / 1000), 'seconds');
-          
-          // Fetch user info
-          keycloak.loadUserInfo().then(userInfo => {
-            setUserInfo(userInfo);
-            console.log('User info:', userInfo);
-          });
-
-          // Set up token refresh
-          keycloak.onTokenExpired = () => {
-            console.log('Token expired, refreshing...');
-            keycloak.updateToken(30).then((refreshed) => {
-              if (refreshed) {
-                console.log('Token refreshed');
-                setToken(keycloak.token);
-              } else {
-                console.log('Token not refreshed, still valid');
-              }
-            }).catch(() => {
-              console.error('Failed to refresh token');
-              logout();
-            });
-          };
-        } else {
-          console.log('User authentication failed');
-        }
-      }).catch((error) => {
-        console.error('Authentication failed:', error);
+      console.log('Redirecting to Keycloak login page...');
+      keycloak.login({
+        redirectUri: window.location.origin
       });
     } else {
-      console.error('Keycloak instance not initialized');
+      console.error('Keycloak instance not available');
     }
   };
 
   const logout = () => {
     if (keycloak) {
+      keycloak.logout({
+        redirectUri: window.location.origin
+      });
+      setAuthenticated(false);
+      setUserInfo(null);
+      setToken(null);
+    }
+  };
+
+  const logout = () => {
+    if (keycloak && authenticated) {
       keycloak.logout();
       setAuthenticated(false);
       setUserInfo(null);
       setToken(null);
+      // We don't set initialized to false here because we don't want to re-initialize Keycloak
     }
   };
 
