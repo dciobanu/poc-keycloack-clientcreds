@@ -1,4 +1,4 @@
-// App.js - POC Keycloak Authentication App with Multiple Options - Docker Configuration Update
+// App.js - POC Keycloak Authentication App with Client ID Selection
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
@@ -7,8 +7,11 @@ function App() {
   const [tokenInfo, setTokenInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [authMethod, setAuthMethod] = useState('client'); // 'client' or 'backend'
+  const [authMethod, setAuthMethod] = useState('backend'); // Default to secure backend method
   const [backendUrl, setBackendUrl] = useState('');
+  const [availableClients, setAvailableClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState('poc-ios-client');
+  const [clientsLoading, setClientsLoading] = useState(false);
 
   // Initialize backend URL based on environment or Docker configuration
   useEffect(() => {
@@ -28,11 +31,40 @@ function App() {
     }
   }, []);
 
+  // Fetch available clients from backend
+  useEffect(() => {
+    if (backendUrl) {
+      fetchAvailableClients();
+    }
+  }, [backendUrl]);
+
+  const fetchAvailableClients = async () => {
+    setClientsLoading(true);
+    try {
+      const response = await fetch(`${backendUrl}/api/clients`);
+      
+      if (response.ok) {
+        const clients = await response.json();
+        setAvailableClients(clients);
+        // Set the first client as default if available
+        if (clients.length > 0 && !selectedClientId) {
+          setSelectedClientId(clients[0].id);
+        }
+      } else {
+        console.warn('Failed to fetch available clients');
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    } finally {
+      setClientsLoading(false);
+    }
+  };
+
   // Keycloak configuration
   const keycloakConfig = {
     url: process.env.REACT_APP_KEYCLOAK_URL || 'http://localhost:8080',
     realm: process.env.REACT_APP_KEYCLOAK_REALM || 'sentinel-poc',
-    clientId: process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'poc-ios-client',
+    clientId: selectedClientId || 'poc-ios-client',
     clientSecret: process.env.REACT_APP_KEYCLOAK_CLIENT_SECRET || '267GvXWbwgppYoqcNsRVseg9JuXmqdoK'
   };
 
@@ -48,7 +80,7 @@ function App() {
       formData.append('client_id', keycloakConfig.clientId);
       formData.append('client_secret', keycloakConfig.clientSecret);
 
-      console.log('Requesting token with client-side flow');
+      console.log('Requesting token with client-side flow for client ID:', keycloakConfig.clientId);
       
       // Make the token request directly to Keycloak
       const response = await fetch(
@@ -67,7 +99,7 @@ function App() {
       
       if (response.ok) {
         console.log('Token received successfully');
-        processToken(data.access_token);
+        processToken(data.access_token, keycloakConfig.clientId);
       } else {
         console.error('Error getting token:', data);
         setError(`Error: ${data.error} - ${data.error_description}`);
@@ -86,7 +118,7 @@ function App() {
     setError(null);
     
     try {
-      console.log(`Requesting token through secure backend at ${backendUrl}`);
+      console.log(`Requesting token through secure backend at ${backendUrl} for client ID: ${keycloakConfig.clientId}`);
       
       // Make the token request to our secure backend
       const response = await fetch(
@@ -96,8 +128,10 @@ function App() {
           headers: {
             'Content-Type': 'application/json',
           },
-          // We could add additional context here if needed
-          body: JSON.stringify({}),
+          // Send the client ID to the backend
+          body: JSON.stringify({
+            clientId: keycloakConfig.clientId
+          }),
         }
       );
 
@@ -106,7 +140,7 @@ function App() {
       
       if (response.ok) {
         console.log('Token received successfully from backend');
-        processToken(data.access_token);
+        processToken(data.access_token, data.client_identifier || keycloakConfig.clientId);
       } else {
         console.error('Error getting token from backend:', data);
         setError(`Error: ${data.error} - ${data.error_description}`);
@@ -120,7 +154,7 @@ function App() {
   };
 
   // Process and decode the token
-  const processToken = (accessToken) => {
+  const processToken = (accessToken, clientId) => {
     setToken(accessToken);
     
     // Try to decode the JWT token to display its contents
@@ -129,14 +163,15 @@ function App() {
       setTokenInfo({
         issuedAt: new Date(tokenPayload.iat * 1000).toLocaleString(),
         expiresAt: new Date(tokenPayload.exp * 1000).toLocaleString(),
-        clientId: tokenPayload.client_id || tokenPayload.azp,
+        clientId: tokenPayload.client_id || tokenPayload.azp || clientId,
         scopes: tokenPayload.scope || 'N/A',
         issuer: tokenPayload.iss,
       });
     } catch (err) {
       console.error('Error decoding token:', err);
       setTokenInfo({
-        raw: 'Error decoding token'
+        raw: 'Error decoding token',
+        clientId: clientId
       });
     }
   };
@@ -186,6 +221,37 @@ function App() {
               'Backend: Authentication through secure backend service (Recommended for production)'}
           </p>
         </div>
+
+        <div className="client-selection">
+          <h3>Select Client ID:</h3>
+          {clientsLoading ? (
+            <p>Loading available clients...</p>
+          ) : availableClients.length > 0 ? (
+            <div className="client-dropdown">
+              <select 
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+              >
+                {availableClients.map(client => (
+                  <option key={client.id} value={client.id}>
+                    {client.description || client.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="client-dropdown">
+              <select 
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+              >
+                <option value="poc-ios-client">Client ID: poc-ios-client</option>
+                <option value="mobile-client">Client ID: mobile-client</option>
+                <option value="web-client">Client ID: web-client</option>
+              </select>
+            </div>
+          )}
+        </div>
         
         <div className="config-info">
           <h3>Configuration:</h3>
@@ -216,7 +282,10 @@ function App() {
         {token && (
           <div className="token-info">
             <h2>Token Received!</h2>
-            <p className="token-source">Token obtained via: <strong>{authMethod === 'client' ? 'Client-side Flow' : 'Secure Backend'}</strong></p>
+            <p className="token-source">
+              Token obtained via: <strong>{authMethod === 'client' ? 'Client-side Flow' : 'Secure Backend'}</strong> 
+              for client: <strong>{tokenInfo?.clientId || selectedClientId}</strong>
+            </p>
             
             <div className="token-details">
               <h3>Access Token:</h3>

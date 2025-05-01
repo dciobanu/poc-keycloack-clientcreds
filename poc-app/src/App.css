@@ -175,6 +175,53 @@
   margin-top: 20px;
 }
 
+/* Client selection styles */
+.client-selection {
+  width: 100%;
+  max-width: 600px;
+  margin-bottom: 20px;
+  background-color: #f8f8f8;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #34a853;
+}
+
+.client-selection h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 18px;
+  color: #444;
+}
+
+.client-dropdown {
+  margin: 10px 0;
+}
+
+.client-dropdown select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  background-color: white;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 1em;
+}
+
+.client-dropdown select:focus {
+  outline: none;
+  border-color: #4285f4;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.client-dropdown select:hover {
+  border-color: #aaa;
+}
+
 @media (max-width: 600px) {
   .toggle-container {
     flex-direction: column;

@@ -82,6 +82,8 @@ services:
       - KEYCLOAK_REALM=sentinel-poc
       - KEYCLOAK_CLIENT_ID=poc-ios-client
       - KEYCLOAK_CLIENT_SECRET=267GvXWbwgppYoqcNsRVseg9JuXmqdoK
+      - MOBILE_CLIENT_SECRET=mobileClientSecretExample
+      - WEB_CLIENT_SECRET=webClientSecretExample
     depends_on:
       - keycloak
     networks:
