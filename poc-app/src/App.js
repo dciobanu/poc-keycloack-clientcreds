@@ -1,107 +1,79 @@
-// App.js - POC Keycloak Authentication App
-import React, { useState, useEffect } from 'react';
-import Keycloak from 'keycloak-js';
+// App.js - POC Keycloak Authentication App with Client Credentials Flow
+import React, { useState } from 'react';
 import './App.css';
 
 function App() {
-  const [keycloak, setKeycloak] = useState(null);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [userInfo, setUserInfo] = useState(null);
   const [token, setToken] = useState(null);
-  const [initializationError, setInitializationError] = useState(null);
+  const [tokenInfo, setTokenInfo] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    // Initialize Keycloak instance using environment variables
-    const keycloakConfig = {
-      url: process.env.REACT_APP_KEYCLOAK_URL || 'http://localhost:8080',
-      realm: process.env.REACT_APP_KEYCLOAK_REALM || 'sentinel-poc',
-      clientId: process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'poc-ios-client',
-    };
+  // Keycloak configuration
+  const keycloakConfig = {
+    url: process.env.REACT_APP_KEYCLOAK_URL || 'http://localhost:8080',
+    realm: process.env.REACT_APP_KEYCLOAK_REALM || 'sentinel-poc',
+    clientId: process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'poc-ios-client',
+    clientSecret: process.env.REACT_APP_KEYCLOAK_CLIENT_SECRET || '267GvXWbwgppYoqcNsRVseg9JuXmqdoK'
+  };
 
-    console.log('Keycloak config:', keycloakConfig);
-    const keycloakInstance = new Keycloak(keycloakConfig);
-
-    // Initialize Keycloak on component mount
-    keycloakInstance.init({
-      flow: 'implicit', // Using implicit flow as requested
-      redirectUri: window.location.origin,
-      checkLoginIframe: false, // Disable iframe usage completely
-      onLoad: 'check-sso' // Only check if already logged in, don't force login
-    }).then(authenticated => {
-      console.log('Keycloak initialized, authenticated:', authenticated);
-      setKeycloak(keycloakInstance);
-      setAuthenticated(authenticated);
-      
-      if (authenticated) {
-        setToken(keycloakInstance.token);
-        
-        // Fetch user info
-        keycloakInstance.loadUserInfo().then(userInfo => {
-          setUserInfo(userInfo);
-          console.log('User info loaded:', userInfo);
-        }).catch(error => {
-          console.error('Failed to load user info:', error);
-        });
-        
-        // Set up token refresh
-        keycloakInstance.onTokenExpired = () => {
-          console.log('Token expired, refreshing...');
-          keycloakInstance.updateToken(30).then(refreshed => {
-            if (refreshed) {
-              console.log('Token refreshed');
-              setToken(keycloakInstance.token);
-            } else {
-              console.log('Token not refreshed, still valid');
-            }
-          }).catch(error => {
-            console.error('Failed to refresh token:', error);
-            setAuthenticated(false);
-            setUserInfo(null);
-            setToken(null);
-          });
-        };
-      }
-    }).catch(error => {
-      console.error('Failed to initialize Keycloak:', error);
-      setInitializationError(error.toString());
-    });
+  // Function to get token using client credentials flow
+  const getClientToken = async () => {
+    setLoading(true);
+    setError(null);
     
-    // Clean up function to handle component unmounting
-    return () => {
-      console.log('Component unmounting, cleaning up Keycloak instance');
-      // No specific cleanup needed for Keycloak
-    };
-  }, []); // Empty dependency array ensures this runs only once
+    try {
+      // Create form data for the token request
+      const formData = new URLSearchParams();
+      formData.append('grant_type', 'client_credentials');
+      formData.append('client_id', keycloakConfig.clientId);
+      formData.append('client_secret', keycloakConfig.clientSecret);
 
-  const login = () => {
-    if (keycloak) {
-      console.log('Redirecting to Keycloak login page...');
-      keycloak.login({
-        redirectUri: window.location.origin
-      });
-    } else {
-      console.error('Keycloak instance not available');
-    }
-  };
+      console.log('Requesting token with config:', keycloakConfig);
+      
+      // Make the token request
+      const response = await fetch(
+        `${keycloakConfig.url}/realms/${keycloakConfig.realm}/protocol/openid-connect/token`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData,
+        }
+      );
 
-  const logout = () => {
-    if (keycloak) {
-      keycloak.logout({
-        redirectUri: window.location.origin
-      });
-      setAuthenticated(false);
-      setUserInfo(null);
-      setToken(null);
-    }
-  };
-
-  const logout = () => {
-    if (keycloak && authenticated) {
-      keycloak.logout();
-      setAuthenticated(false);
-      setUserInfo(null);
-      setToken(null);
-      // We don't set initialized to false here because we don't want to re-initialize Keycloak
+      // Parse the response
+      const data = await response.json();
+      
+      if (response.ok) {
+        console.log('Token received successfully');
+        setToken(data.access_token);
+        
+        // Try to decode the JWT token to display its contents
+        try {
+          const tokenPayload = JSON.parse(atob(data.access_token.split('.')[1]));
+          setTokenInfo({
+            issuedAt: new Date(tokenPayload.iat * 1000).toLocaleString(),
+            expiresAt: new Date(tokenPayload.exp * 1000).toLocaleString(),
+            clientId: tokenPayload.client_id || tokenPayload.azp,
+            scopes: tokenPayload.scope || 'N/A',
+            issuer: tokenPayload.iss,
+          });
+        } catch (err) {
+          console.error('Error decoding token:', err);
+          setTokenInfo({
+            raw: data
+          });
+        }
+      } else {
+        console.error('Error getting token:', data);
+        setError(`Error: ${data.error} - ${data.error_description}`);
+      }
+    } catch (err) {
+      console.error('Request failed:', err);
+      setError(`Request failed: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -109,34 +81,59 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>Keycloak Authentication POC</h1>
-        <p>This POC demonstrates the implicit flow authentication with Keycloak</p>
+        <p>This POC demonstrates the client credentials flow with Keycloak</p>
         
-        {!authenticated && (
-          <button onClick={login} className="login-button">
-            Login with Keycloak
+        <div className="config-info">
+          <h3>Configuration:</h3>
+          <p><strong>Keycloak URL:</strong> {keycloakConfig.url}</p>
+          <p><strong>Realm:</strong> {keycloakConfig.realm}</p>
+          <p><strong>Client ID:</strong> {keycloakConfig.clientId}</p>
+        </div>
+        
+        {error && (
+          <div className="error-message">
+            <p>{error}</p>
+          </div>
+        )}
+        
+        {!token && (
+          <button 
+            onClick={getClientToken} 
+            className="login-button" 
+            disabled={loading}
+          >
+            {loading ? 'Getting token...' : 'Get Client Token'}
           </button>
         )}
         
-        {authenticated && (
-          <div className="user-info">
-            <h2>You are logged in!</h2>
-            {userInfo && (
-              <div className="user-details">
-                <p><strong>Name:</strong> {userInfo.name}</p>
-                <p><strong>Email:</strong> {userInfo.email}</p>
-                <p><strong>Username:</strong> {userInfo.preferred_username}</p>
-              </div>
-            )}
+        {token && (
+          <div className="token-info">
+            <h2>Token Received!</h2>
             
-            {token && (
-              <div className="token-info">
-                <h3>Access Token (first 20 chars):</h3>
-                <p className="token-preview">{token.substring(0, 20)}...</p>
-              </div>
-            )}
+            <div className="token-details">
+              <h3>Access Token:</h3>
+              <p className="token-preview">{token.substring(0, 20)}...</p>
+              
+              {tokenInfo && (
+                <div className="token-meta">
+                  <h3>Token Information:</h3>
+                  <p><strong>Client ID:</strong> {tokenInfo.clientId}</p>
+                  <p><strong>Issued At:</strong> {tokenInfo.issuedAt}</p>
+                  <p><strong>Expires At:</strong> {tokenInfo.expiresAt}</p>
+                  <p><strong>Scopes:</strong> {tokenInfo.scopes}</p>
+                  <p><strong>Issuer:</strong> {tokenInfo.issuer}</p>
+                </div>
+              )}
+            </div>
             
-            <button onClick={logout} className="logout-button">
-              Logout
+            <button 
+              onClick={() => {
+                setToken(null);
+                setTokenInfo(null);
+              }} 
+              className="logout-button"
+            >
+              Clear Token
             </button>
           </div>
         )}

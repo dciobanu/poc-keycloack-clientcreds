@@ -37,6 +37,13 @@ ps:
 build:
 	$(DOCKER_COMPOSE) build
 
+rebuild: build
+	$(DOCKER_COMPOSE) up -d
+
+full-rebuild:
+	$(DOCKER_COMPOSE) build --no-cache
+	$(DOCKER_COMPOSE) up -d
+
 # Deep clean - removes containers, networks, volumes, and images
 clean:
 	$(DOCKER_COMPOSE) down --volumes --remove-orphans
