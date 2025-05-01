@@ -20,15 +20,11 @@ This project demonstrates a complete implementation of Keycloak authentication u
 
 To start the entire demo with a single command:
 
-```bash
-# Make the startup script executable
-chmod +x start-demo.sh
-
-# Run the startup script
-./start-demo.sh
+```sh
+make up
 ```
 
-This script will:
+This will:
 1. Build and start all services (Keycloak, database, initializer, backend, frontend)
 2. Configure Keycloak with the necessary realm and clients
 3. Open the application in your default browser
