@@ -43,6 +43,27 @@ services:
       - keycloak-network
     restart: unless-stopped
 
+  poc-app:
+    build:
+      context: ./poc-app
+      dockerfile: Dockerfile
+    container_name: keycloak-poc-demo
+    volumes:
+      - ./poc-app:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_KEYCLOAK_URL=http://keycloak:8080
+      - REACT_APP_KEYCLOAK_REALM=sentinel-poc
+      - REACT_APP_KEYCLOAK_CLIENT_ID=poc-ios-client
+    depends_on:
+      - keycloak
+    networks:
+      - keycloak-network
+    restart: unless-stopped
+
 networks:
   keycloak-network:
     driver: bridge
